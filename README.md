@@ -1,3 +1,9 @@
+[![make.fun · token-radar-01](https://make.fun/badge/token-radar-01.svg)](https://make.fun/bounty/token-radar-01?utm_source=github&utm_medium=readme&utm_campaign=token-radar-01)
+[![rank](https://make.fun/badge/token-radar-01/DeanYang1204/makefun-token-radar-01/rank.svg)](https://make.fun/bounty/token-radar-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=token-radar-01)
+[![reward](https://make.fun/badge/token-radar-01/DeanYang1204/makefun-token-radar-01/reward.svg)](https://make.fun/bounty/token-radar-01?utm_source=github&utm_medium=readme&utm_campaign=token-radar-01)
+
+Built for [make.fun's "Build the best token launch radar" bounty](https://make.fun/bounty/token-radar-01) — $1,325 in USDC.
+
 # Token Radar — token-radar-01 entry (model radar-2)
 
 A program (`main.ts`, Node 22, standard library only) that reads a sealed DefiLlama
