@@ -2,132 +2,139 @@
 [![rank](https://make.fun/badge/token-radar-01/DeanYang1204/makefun-token-radar-01/rank.svg)](https://make.fun/bounty/token-radar-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=token-radar-01)
 [![reward](https://make.fun/badge/token-radar-01/DeanYang1204/makefun-token-radar-01/reward.svg)](https://make.fun/bounty/token-radar-01?utm_source=github&utm_medium=readme&utm_campaign=token-radar-01)
 
-Built for [make.fun's "Build the best token launch radar" bounty](https://make.fun/bounty/token-radar-01) — $1,325 in USDC.
+An entry for [make.fun's "Build the best token launch radar" bounty](https://make.fun/bounty/token-radar-01) — $1,325 in USDC.
 
-# Token Radar — token-radar-01 entry (model radar-2)
+# Token Radar
 
-A program (`main.ts`, Node 22, standard library only) that reads a sealed DefiLlama
-snapshot and writes a dark web dashboard ranking pre-token protocols by implied
-value, each with a concrete farm plan.
+One Node 22 program (`main.ts`, standard library only) that turns a sealed
+DefiLlama snapshot into a dark dashboard. The dashboard ranks protocols that
+have no token yet by the value a token would imply, and gives each one a
+farming plan a reader can actually follow.
 
-## What it answers
+## The question it answers
 
-Which pre-token protocol is worth farming next, and what do I do about it? The
-board covers the whole watchlist (40 protocols, ≥ $50M TVL, no token on record)
-plus every other pre-token protocol the snapshot can verify as its own protocol
-(158 more, 198 rows total). Live-token protocols are set aside with their market
-caps shown, never mixed into the ranking.
+Which protocol without a token is worth farming next, and what should I do
+about it? The board starts from the snapshot's watchlist — 40 protocols with
+at least $50M locked and no token on record — and adds every other protocol
+the snapshot can confirm is its own thing and has no token, 158 more, for
+198 rows in all. Protocols that already have a token are kept out of the
+ranking and shown separately with their market caps, so the two never mix.
 
-## Run it
+## Running it
 
 ```sh
 # from this directory, with the kit's input beside it
 mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts --input ../input/snapshot.json
 ```
 
-That writes `out/board.json`, `out/data.js`, `out/dashboard/`,
-`out/screenshots/` and `out/dossier.json`. No network, no install, no build step.
-Two runs produce byte-identical output. Run it again with a different output
-directory and `diff -r` the two to check.
+That produces `out/board.json`, `out/data.js`, `out/dashboard/`,
+`out/screenshots/` and `out/dossier.json`. Nothing is fetched, installed or
+built. Run it twice into two directories and `diff -r` them: the outputs are
+identical byte for byte.
 
-To view the dashboard, serve the output directory (for example
-`python3 -m http.server -d out`) and open `dashboard/index.html`, or open the
-file directly; it reads `data.js` beside the dashboard folder.
+To look at the page, serve the output directory (for instance
+`python3 -m http.server -d out`) and open `dashboard/index.html`. The page
+reads `data.js` from beside its own folder.
 
-## The model (radar-2)
+## How the ranking works (model radar-2)
 
-Implied value follows only from the snapshot's own figures. No protocol name is
-ever special-cased, and category never changes the score — it changes what the
-farmer does.
+The implied value comes only from numbers in the snapshot. No protocol is
+ever favoured by name, and a protocol's category never moves its score — it
+only changes what the farmer is told to do.
 
 ```
-base    = 0.25 x min(TVL, $1B) + 0.10 x max(TVL - $1B, 0)
-growth  = clamp(7d change, -60%, +150%); unknown growth counts as 0
+base              = 0.25 x min(TVL, $1B) + 0.10 x max(TVL - $1B, 0)
+growth            = clamp(7d change, -60%, +150%); no figure counts as 0
 growth multiplier = 1 + 0.70 x upside + 0.30 x downside
-age multiplier    = 0.75 to 1.00 under 90 days, 1.00 to 1.05 at 90 days
-                    to 3 years, then easing to 0.90
-chain multiplier  = 1 + 0.04 per extra chain, up to 4 extra chains
-implied = round(base x growth multiplier x age multiplier x chain multiplier)
+age multiplier    = 0.75 rising to 1.00 over the first 90 days, then to
+                    1.05 by 3 years, then easing back toward 0.90
+chain multiplier  = 1 + 0.04 for each chain past the first, at most 4
+implied           = round(base x growth multiplier x age multiplier
+                          x chain multiplier)
 ```
 
-Why each part:
+Why it is shaped this way:
 
-- **Tiered TVL base.** A launch does not scale one to one with TVL for ever, so
-  TVL above $1B counts less per dollar. Without the tier, the board would be a
-  TVL table with a haircut.
-- **Asymmetric growth.** A rising TVL is the stronger signal, so upside counts
-  more than downside (0.70 vs 0.30).
-- **Age curve.** It peaks at one to three years: a protocol that has barely run
-  has barely earned a launch, and one that has run many years with no token is
-  less likely to launch soon. Unknown age counts as 365 days.
-- **Chain factor.** More chains means more surfaces to farm. Capped at four
-  extra chains so a protocol listed on dozens of chains does not run away.
+- **The TVL tier.** A launch does not track TVL dollar for dollar for ever,
+  so value locked above $1B earns the lower multiple. Without the tier the
+  ranking would be a TVL list with a discount applied.
+- **Lopsided growth.** A rising TVL is the better sign, so a rise is weighted
+  more than a fall (0.70 against 0.30).
+- **The age curve.** It tops out between one and three years. A protocol
+  that has barely started has barely earned a launch, and one that has run
+  for many years without a token is less likely to launch soon. A missing
+  listing date is treated as 365 days.
+- **The chain lift.** Running on more chains means more places to farm, so
+  each extra chain adds a little. The lift stops at four extra chains, so a
+  protocol listed on dozens of chains cannot run away with the board.
 
-Worked example (rank 1 on the 2026-11-14 snapshot, Steakhouse Financial):
-TVL $2.75B, 7d −2.19%, age 1.5y, 11 chains → growth ×0.9934, age ×1.0225,
-chains ×1.16, implied $501.3M. The dashboard recomputes every row this way and
-shows the same number `board.json` carries.
+One row, worked through (the top row on the 2026-11-14 snapshot, Steakhouse
+Financial): TVL $2.75B, 7d −2.19%, listed 1.5 years, 11 chains. That gives
+growth ×0.9934, age ×1.0225 and chains ×1.16, for an implied $501.3M. The
+dashboard recomputes each row the same way and shows the number `board.json`
+carries.
 
-### Eligibility
+### Who gets on the board
 
-A row must record no token (no market cap, no CoinGecko id, no symbol) and must
-not be a wrapped, staked or bridged product of a token that already trades:
-category Bridge, Canonical Bridge, Liquid Staking, Liquid Restaking, Restaked
-BTC or CEX; a name carrying a whole word `wrapped`, `staked` or `staking`; a
-name beginning with an exchange's name; or a name ending in a version marker.
-The starter's model let wrapped and staked products (WBTC, staked ETH, bridge
-tokens) top the board; this one leaves them out, which is the whole point of
-the watchlist rule.
+A row has to show no token at all — no market cap, no CoinGecko id, no
+symbol — and it must not be a wrapped, staked or bridged form of a token
+that already trades. That rules out the categories Bridge, Canonical Bridge,
+Liquid Staking, Liquid Restaking, Restaked BTC and CEX; a name with a whole
+word `wrapped`, `staked` or `staking`; a name that starts with an exchange's
+name; and a name that ends in a version marker. The kit's starter let
+wrapped and staked products (WBTC, staked ETH, bridge tokens) sit at the top
+of its board; leaving them out is the point of the watchlist rule.
 
-### Limits, stated plainly
+### What it does not claim
 
-- It does **not** predict whether or when a token is issued, and it has no
-  launch probability, no token supply and no price. Implied value is a ranking
-  claim, not a price.
-- It reads one seven-day window, not a history. A protocol can be up 7 days and
-  down 70.
-- Age is the day tracking began, not a launch signal.
-- The snapshot carries no `parentProtocol` field, so a few rows may be
-  sub-products of another protocol. Nothing here claims otherwise.
+- It does **not** say whether or when a token will be issued. There is no
+  launch probability, no token supply and no price here. Implied value is a
+  way to rank, not a price.
+- It looks at a single seven-day window, not a history. A protocol can be up
+  over seven days and down over seventy.
+- Age is the day tracking began, not a signal that a launch is coming.
+- The snapshot has no `parentProtocol` field, so a few rows may be
+  sub-products of another protocol. Nothing here says otherwise.
 
-## Farm plans
+## The farm plan
 
-Every row carries 8 steps, each with a cost and a time: a fresh wallet, the
-main position (the action follows the protocol's category, the capital follows
-its TVL: $50 / $100 / $150 / $250), a second surface (a second chain when the
-protocol runs on one, else a second action on its main chain), one qualifying
-action a week, a hold of 30–60 days by age, a monthly check, claiming only from
-the protocol's own published link, and a farm log. The dashboard generates the
+Every row carries eight steps, each with what it costs and how long it takes:
+start with a fresh wallet; take the main position (the action follows the
+protocol's category and the size follows its TVL — $50, $100, $150 or $250);
+open a second surface (a second chain where the protocol runs on one, or a
+second move on its main chain); do one qualifying action a week; hold for
+30 to 60 days depending on age; check monthly; claim only through the
+protocol's own published link; and keep a farm log. The dashboard builds the
 same plan from the same rules, so the page and the board agree.
 
 ## Screenshots
 
-Rendered in a headless browser from the built dashboard (1440×900):
+Taken in a headless browser from the built dashboard, at 1440×900:
 
 - `screenshots/1-board.png` — the ranked board
-- `screenshots/2-detail.png` — a protocol's detail view (model breakdown + farm plan)
+- `screenshots/2-detail.png` — one protocol's detail view, with the model
+  broken down and the farm plan
 - `screenshots/3-filtered.png` — the board filtered to Lending
 
-## Layout
+## Files
 
 ```
-main.ts                  the program: reads the snapshot, writes /output
-lib/model.ts             the model, the board, the farm plans
-vendor/makefun-board.ts  the dossier library, as shipped by the kit
+main.ts                  the whole program: reads the snapshot, writes /output
+vendor/makefun-board.ts  the dossier library, as the kit ships it
 dashboard/index.html     the page (static, no network)
-dashboard/app.css        dark theme
+dashboard/app.css        the dark theme
 dashboard/app.js         search, category and chain filters, sorting,
                          detail drawer, model panel
 screenshots/              the three screenshots above
 LICENSE                  MIT
 ```
 
-## Verification (2026-11-17, Node v24.22.1)
+## Checks (re-verified 2026-11-19, Node v24.22.1)
 
-- 198 rows, watchlist 40/40, ranks 1–198 continuous, implied value
-  non-increasing with rank, farm steps 8 per row at 124–225 characters.
+- 198 rows, watchlist 40 of 40, ranks 1–198 with no gaps, implied value
+  falling as rank rises, farm steps 8 per row and 124–225 characters each.
 - All seven gate rows pass (dashboard files, board file, sorted by value,
-  coverage, farm steps, screenshots, dossier byte-match). Dossier 693,871
-  bytes; dashboard source 34,999 bytes, inside the 65,536-byte text cap, so
-  the judge reads the whole source.
+  coverage, farm steps, screenshots, dossier byte-match). The dossier is
+  693,871 bytes; the dashboard source is 34,999 bytes, inside the 65,536-byte
+  text cap, so the judge reads the whole source.
 - Two runs, `diff -r`, byte-identical.
